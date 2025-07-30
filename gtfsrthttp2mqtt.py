@@ -9,6 +9,7 @@ from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 
 import gtfs_realtime_pb2
+import pieturas_gtfs_rt_pb2
 import utils
 
 
@@ -94,9 +95,9 @@ class GTFSRTHTTP2MQTTTransformer:
                 nent.CopyFrom(entity)
 
                 trip_id = entity.vehicle.trip.trip_id
-                route_id = utils.parse_route_id(self.feedName, entity.vehicle.trip.route_id, trip_id, self.OTPData)
+                route_id = entity.vehicle.trip.route_id
                 direction_id = entity.vehicle.trip.direction_id
-                trip_headsign = entity.vehicle.vehicle.label
+                trip_headsign = entity.vehicle.vehicle.Extensions[pieturas_gtfs_rt_pb2.vehicle_headsign]
                 # headsigns with / cause problems in topics
                 if '/' in trip_headsign:
                     trip_headsign = ''
@@ -113,14 +114,15 @@ class GTFSRTHTTP2MQTTTransformer:
                 vehicle_id = entity.vehicle.vehicle.id
                 short_name = utils.parse_short_name(self.feedName, trip_id, route_id, self.OTPData)
                 color = utils.parse_color(self.feedName, trip_id, route_id, self.OTPData)
+                attribute = entity.vehicle.vehicle.Extensions[pieturas_gtfs_rt_pb2.displayed_vehicle_attribute_id]
                 mode = utils.parse_mode(self.feedName, trip_id, route_id, self.OTPData)
 
                 # gtfsrt/vp/<feed_name>/<agency_id>/<agency_name>/<mode>/<route_id>/<direction_id>/<trip_headsign>/<trip_id>/<next_stop>/<start_time>/<vehicle_id>/<geohash_head>/<geohash_firstdeg>/<geohash_seconddeg>/<geohash_thirddeg>/<short_name>/<color>/
                 # GTFS RT feed used for testing was missing some information so those are empty
-                full_topic = '{0}/{1}///{2}/{3}/{4}/{5}/{6}/{7}/{8}/{9}/{10}/{11}/{12}/{13}/{14}/{15}/'.format(
+                full_topic = '{0}/{1}///{2}/{3}/{4}/{5}/{6}/{7}/{8}/{9}/{10}/{11}/{12}/{13}/{14}/{15}/{16}/'.format(
                     self.baseMqttTopic, self.feedName, mode, route_id, direction_id,
                     trip_headsign, trip_id, stop_id, start_time, vehicle_id, geohash_head, geohash_firstdeg,
-                    geohash_seconddeg, geohash_thirddeg, short_name, color).replace("+","").replace("#", "")
+                    geohash_seconddeg, geohash_thirddeg, short_name, color, attribute).replace("+","").replace("#", "")
 
                 sernmesg = nfeedmsg.SerializeToString()
                 self.client.publish(full_topic, sernmesg)
